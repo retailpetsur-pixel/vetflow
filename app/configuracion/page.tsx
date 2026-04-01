@@ -167,35 +167,6 @@ export default function ConfiguracionPage() {
       return
     }
 
-    const handleUploadFirma = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  if (!e.target.files || e.target.files.length === 0) return
-
-  const file = e.target.files[0]
-  const filePath = `firma-${Date.now()}.png`
-
-  const { error } = await supabase.storage
-    .from('firmas')
-    .upload(filePath, file)
-
-  if (error) {
-    alert(error.message)
-    return
-  }
-
-  const { data } = supabase.storage
-    .from('firmas')
-    .getPublicUrl(filePath)
-
-  const url = data.publicUrl
-
-  await supabase
-    .from('veterinarios')
-    .update({ firma_url: url })
-    .eq('id', 1)
-
-  alert('Firma subida correctamente')
-}
-
     setGuardandoVeterinario(true)
 
     const payload = {
@@ -433,34 +404,7 @@ if (error) {
             />
           </div>
 
-const handleUploadFirma = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  if (!e.target.files || e.target.files.length === 0) return
 
-  const file = e.target.files[0]
-  const filePath = `firma-${Date.now()}.png`
-
-  const { error } = await supabase.storage
-    .from('firmas')
-    .upload(filePath, file)
-
-  if (error) {
-    alert(error.message)
-    return
-  }
-
-  const { data } = supabase.storage
-    .from('firmas')
-    .getPublicUrl(filePath)
-
-  const url = data.publicUrl
-
-  await supabase
-    .from('veterinarios')
-    .update({ firma_url: url })
-    .eq('id', 1)
-
-  alert('Firma subida correctamente')
-}
 
           <div className="mt-4 flex flex-wrap gap-3">
             <button

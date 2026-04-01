@@ -186,6 +186,17 @@ function tutorVisibleCita(cita: Cita) {
 }
 
 export default function Dashboard() {
+
+ useEffect(() => {
+  const probarConexion = async () => {
+    const { data, error } = await supabase.from('pacientes').select('*')
+    console.log('DATA:', data)
+    console.log('ERROR:', error)
+  }
+
+  probarConexion()
+}, [])
+ 
   const [tutores, setTutores] = useState<Tutor[]>([])
   const [pacientes, setPacientes] = useState<Paciente[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
