@@ -196,7 +196,7 @@ export default function Dashboard() {
 
   probarConexion()
 }, [])
- 
+
   const [tutores, setTutores] = useState<Tutor[]>([])
   const [pacientes, setPacientes] = useState<Paciente[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
@@ -1693,8 +1693,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-            <div className="grid grid-cols-7 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+
+  <div className="overflow-x-auto">
+    <div className="min-w-[900px]">
+
+      <div className="grid grid-cols-7 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
               <div>Fecha</div>
               <div>Hora</div>
               <div>Paciente</div>
@@ -1755,6 +1759,8 @@ export default function Dashboard() {
                 No hay reservas registradas.
               </div>
             )}
+        </div>
+      </div>
           </div>
         </div>
       </div>

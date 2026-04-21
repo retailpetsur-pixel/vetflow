@@ -9,10 +9,7 @@ const router = useRouter();
     <main className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-slate-900">PetSur</h1>
-          <p className="text-slate-600 mt-2">
-            gestión clínica veterinaria simple y rápida
-          </p>
+gestión clínica veterinaria simple y rápida
         </div>
 
 <form

@@ -80,6 +80,12 @@ export default function FichaPacientePage() {
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(null)
 
   const [nuevaAtencion, setNuevaAtencion] = useState('')
+  const [motivoVisita, setMotivoVisita] = useState('')
+  const [anamnesis, setAnamnesis] = useState('')
+  const [examenClinico, setExamenClinico] = useState('')
+  const [inyectablesProcedimientos, setInyectablesProcedimientos] = useState('')
+  const [tratamientoAtencion, setTratamientoAtencion] = useState('')
+  const [indicacionesAtencion, setIndicacionesAtencion] = useState('')
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
 
@@ -217,32 +223,59 @@ const cargarConfiguracion = async () => {
     setRecetas(listaRecetas)
   }
 
-  const guardarAtencion = async () => {
-    if (!nuevaAtencion.trim()) {
-      alert('Escribe una atención')
-      return
-    }
+const guardarAtencion = async () => {
+  const descripcionFinal = `
+Motivo de visita:
+${motivoVisita.trim()}
 
-    setGuardando(true)
+Anamnesis:
+${anamnesis.trim()}
 
-    const { error } = await supabase.from('atenciones').insert([
-      {
-        paciente_id: Number(id),
-        descripcion: nuevaAtencion.trim(),
-      },
-    ])
+Examen clínico:
+${examenClinico.trim()}
 
-    setGuardando(false)
+Inyectables / procedimientos:
+${inyectablesProcedimientos.trim()}
 
-    if (error) {
-      console.error(error)
-      alert('Error guardando atención')
-      return
-    }
+Tratamiento:
+${tratamientoAtencion.trim()}
 
-    setNuevaAtencion('')
-    await cargarAtenciones()
+Indicaciones / plan:
+${indicacionesAtencion.trim()}
+  `.trim()
+
+  if (!descripcionFinal.replace(/\s/g, '')) {
+    alert('Completa al menos un campo de la atención')
+    return
   }
+
+  setGuardando(true)
+
+  const { error } = await supabase.from('atenciones').insert([
+    {
+      paciente_id: Number(id),
+      descripcion: descripcionFinal,
+    },
+  ])
+
+  setGuardando(false)
+
+  if (error) {
+    console.error(error)
+    alert('Error guardando atención')
+    return
+  }
+
+  setNuevaAtencion('')
+  setMotivoVisita('')
+  setAnamnesis('')
+  setExamenClinico('')
+  setInyectablesProcedimientos('')
+  setTratamientoAtencion('')
+  setIndicacionesAtencion('')
+
+  await cargarAtenciones()
+}
 
   const limpiarFormularioReceta = () => {
     setFechaReceta(fechaHoyISO())
@@ -587,26 +620,93 @@ const cargarConfiguracion = async () => {
           </div>
         </div>
 
-        <div className={cardClass}>
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-            Nueva atención
-          </h2>
+<div className={cardClass}>
+  <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+    Nueva atención
+  </h2>
 
-          <textarea
-            className={`${inputClass} mt-4 min-h-[160px]`}
-            placeholder="Escribe evolución, diagnóstico, tratamiento u observaciones..."
-            value={nuevaAtencion}
-            onChange={(e) => setNuevaAtencion(e.target.value)}
-          />
+  <div className="mt-4 grid grid-cols-1 gap-4">
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        Motivo de visita
+      </label>
+      <input
+        className={inputClass}
+        placeholder="Ej: control, vómitos, diarrea, cojera, dermatológico..."
+        value={motivoVisita}
+        onChange={(e) => setMotivoVisita(e.target.value)}
+      />
+    </div>
 
-          <button
-            onClick={guardarAtencion}
-            disabled={guardando}
-            className="mt-4 rounded-xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-          >
-            {guardando ? 'Guardando...' : 'Guardar atención'}
-          </button>
-        </div>
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        Anamnesis
+      </label>
+      <textarea
+        className={`${inputClass} min-h-[110px]`}
+        placeholder="Resumen de lo que refiere el tutor..."
+        value={anamnesis}
+        onChange={(e) => setAnamnesis(e.target.value)}
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        Examen clínico
+      </label>
+      <textarea
+        className={`${inputClass} min-h-[110px]`}
+        placeholder="T°, FC, FR, mucosas, hidratación, dolor, hallazgos..."
+        value={examenClinico}
+        onChange={(e) => setExamenClinico(e.target.value)}
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        Inyectables / procedimientos
+      </label>
+      <textarea
+        className={`${inputClass} min-h-[100px]`}
+        placeholder="Ej: Cerenia 1 mg/kg SC, meloxicam, fluidoterapia, curación..."
+        value={inyectablesProcedimientos}
+        onChange={(e) => setInyectablesProcedimientos(e.target.value)}
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        Tratamiento
+      </label>
+      <textarea
+        className={`${inputClass} min-h-[110px]`}
+        placeholder="Tratamiento indicado en consulta..."
+        value={tratamientoAtencion}
+        onChange={(e) => setTratamientoAtencion(e.target.value)}
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        Indicaciones / plan
+      </label>
+      <textarea
+        className={`${inputClass} min-h-[110px]`}
+        placeholder="Controles, exámenes, reposo, dieta, indicaciones al tutor..."
+        value={indicacionesAtencion}
+        onChange={(e) => setIndicacionesAtencion(e.target.value)}
+      />
+    </div>
+  </div>
+
+  <button
+    onClick={guardarAtencion}
+    disabled={guardando}
+    className="mt-6 rounded-xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+  >
+    {guardando ? 'Guardando...' : 'Guardar atención'}
+  </button>
+</div>
 
         <div className={cardClass}>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
