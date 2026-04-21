@@ -996,13 +996,23 @@ ${indicacionesAtencion.trim()}
                       <div>{formatFecha(fechaReceta)}</div>
                     </div>
 
-                    <div className="text-right">
-                      <div className="mb-6 text-4xl text-indigo-600">✍️</div>
-                      <div className="border-t border-indigo-400 pt-2 font-bold text-indigo-700">
-                        {veterinarioSeleccionado?.nombre || '-'}
-                      </div>
-                      <div>{veterinarioSeleccionado?.rut || '-'}</div>
-                    </div>
+<div className="text-right">
+  {veterinarioSeleccionado?.firma_url ? (
+    <img
+      src={veterinarioSeleccionado.firma_url}
+      alt="Firma veterinario"
+      className="mb-4 ml-auto h-40 object-contain"
+    />
+  ) : (
+    <div className="mb-6 text-4xl text-indigo-600">✍️</div>
+  )}
+
+  <div className="border-t border-indigo-400 pt-2 font-bold text-indigo-700">
+    {veterinarioSeleccionado?.nombre || '-'}
+  </div>
+
+  <div>{veterinarioSeleccionado?.rut || '-'}</div>
+</div>
                   </div>
 
                   {ultimaRecetaId ? (

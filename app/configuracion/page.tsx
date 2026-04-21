@@ -42,6 +42,8 @@ export default function ConfiguracionPage() {
   const [direccionVet, setDireccionVet] = useState('')
   const [pinVet, setPinVet] = useState('')
   const [firmaUrlVet, setFirmaUrlVet] = useState('')
+  const [archivoFirma, setArchivoFirma] = useState<File | null>(null)
+  const [subiendoFirma, setSubiendoFirma] = useState(false)
 
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [guardandoVeterinario, setGuardandoVeterinario] = useState(false)
@@ -161,6 +163,37 @@ export default function ConfiguracionPage() {
     setFirmaUrlVet('')
   }
 
+  const subirFirmaVeterinario = async () => {
+  if (!archivoFirma) {
+    alert('Selecciona una imagen de firma')
+    return
+  }
+
+  setSubiendoFirma(true)
+
+  const extension = archivoFirma.name.split('.').pop()
+  const nombreArchivo = `firma-${Date.now()}.${extension}`
+
+  const { error } = await supabase.storage
+    .from('firmas')
+    .upload(nombreArchivo, archivoFirma, {
+      upsert: true,
+    })
+
+  if (error) {
+    console.error(error)
+    alert('Error subiendo firma')
+    setSubiendoFirma(false)
+    return
+  }
+
+  const { data } = supabase.storage
+    .from('firmas')
+    .getPublicUrl(nombreArchivo)
+
+  setFirmaUrlVet(data.publicUrl)
+  setSubiendoFirma(false)
+}
   const guardarVeterinario = async () => {
     if (!nombreVet.trim() || !pinVet.trim()) {
       alert('Debes ingresar nombre y PIN')
@@ -402,6 +435,38 @@ if (error) {
               value={firmaUrlVet}
               onChange={(e) => setFirmaUrlVet(e.target.value)}
             />
+         <div className="mt-3 flex flex-wrap items-center gap-3">
+  <input
+    id="firma-veterinario"
+    type="file"
+    accept="image/*"
+    onChange={(e) => {
+      const file = e.target.files?.[0] || null
+      setArchivoFirma(file)
+    }}
+    className="hidden"
+  />
+
+  <label
+    htmlFor="firma-veterinario"
+    className={buttonSecondary}
+  >
+    Seleccionar firma
+  </label>
+
+  <span className="text-sm text-slate-600 dark:text-slate-300">
+    {archivoFirma ? archivoFirma.name : 'Ningún archivo seleccionado'}
+  </span>
+
+  <button
+    type="button"
+    onClick={subirFirmaVeterinario}
+    disabled={subiendoFirma}
+    className={buttonSecondary}
+  >
+    {subiendoFirma ? 'Subiendo...' : 'Subir firma'}
+  </button>
+</div>
           </div>
 
 
