@@ -3,33 +3,29 @@
 import './globals.css'
 import { useEffect, useState } from 'react'
 
+function getInitialTheme() {
+  if (typeof window === 'undefined') return false
+
+  const saved = localStorage.getItem('petsur-theme')
+  if (saved === 'dark') return true
+  if (saved === 'light') return false
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [dark, setDark] = useState(false)
-  const [ready, setReady] = useState(false)
+  const [dark, setDark] = useState(getInitialTheme)
 
   useEffect(() => {
-    const saved = localStorage.getItem('petsur-theme')
-    if (saved === 'dark') {
-      setDark(true)
-    } else if (saved === 'light') {
-      setDark(false)
-    } else {
-      setDark(window.matchMedia('(prefers-color-scheme: dark)').matches)
-    }
-    setReady(true)
-  }, [])
-
-  useEffect(() => {
-    if (!ready) return
     localStorage.setItem('petsur-theme', dark ? 'dark' : 'light')
-  }, [dark, ready])
+  }, [dark])
 
   return (
-    <html lang="es" className={dark ? 'dark' : ''}>
+    <html lang="es" className={dark ? 'dark' : ''} suppressHydrationWarning>
       <body>
         <div className="fixed right-4 top-4 z-50">
           <button
