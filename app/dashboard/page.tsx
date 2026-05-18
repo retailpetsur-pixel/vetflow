@@ -186,17 +186,6 @@ function tutorVisibleCita(cita: Cita) {
 }
 
 export default function Dashboard() {
-
- useEffect(() => {
-  const probarConexion = async () => {
-    const { data, error } = await supabase.from('pacientes').select('*')
-    console.log('DATA:', data)
-    console.log('ERROR:', error)
-  }
-
-  probarConexion()
-}, [])
-
   const [tutores, setTutores] = useState<Tutor[]>([])
   const [pacientes, setPacientes] = useState<Paciente[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
@@ -242,6 +231,8 @@ export default function Dashboard() {
 
   const agendaRef = useRef<HTMLDivElement | null>(null)
   const nuevoPacienteRef = useRef<HTMLDivElement | null>(null)
+  const fichasRef = useRef<HTMLDivElement | null>(null)
+  const reservasRef = useRef<HTMLDivElement | null>(null)
 
   const inputClass =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800'
@@ -254,6 +245,9 @@ export default function Dashboard() {
 
   const buttonSecondary =
     'rounded-xl border border-slate-300 bg-white px-4 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
+
+  const moduleCardClass =
+    'group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700'
 
   const especieFinal = especie === 'Otro' ? especieOtra.trim() : especie
   const motivoFinal = motivoTipo === 'Otro' ? motivoOtro.trim() : motivoTipo
@@ -278,6 +272,24 @@ export default function Dashboard() {
   const irANuevoPaciente = () => {
     setTimeout(() => {
       nuevoPacienteRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }, 50)
+  }
+
+  const irAFichas = () => {
+    setTimeout(() => {
+      fichasRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }, 50)
+  }
+
+  const irAReservas = () => {
+    setTimeout(() => {
+      reservasRef.current?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
       })
@@ -768,6 +780,16 @@ export default function Dashboard() {
     return citas.filter((c) => c.fecha === fecha)
   }, [citas, fecha])
 
+  const citasHoy = useMemo(() => {
+    const hoy = hoyLocalISO()
+    return citas.filter((c) => c.fecha === hoy)
+  }, [citas])
+
+  const proximasCitas = useMemo(() => {
+    const ahora = hoyLocalISO()
+    return citas.filter((c) => c.fecha >= ahora).slice(0, 5)
+  }, [citas])
+
   const diasSemana = useMemo(() => getWeekDays(fecha), [fecha])
   const calendarioMes = useMemo(() => getMonthGrid(fecha), [fecha])
 
@@ -862,6 +884,186 @@ export default function Dashboard() {
     ⚙️ Configuración
   </Link>
 </div>
+
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <button onClick={irAAgenda} className={moduleCardClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Agenda
+                </div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {citasHoy.length}
+                </div>
+              </div>
+              <div className="rounded-xl bg-sky-100 px-3 py-2 text-xl dark:bg-sky-900/40">
+                🗓️
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              Citas para hoy y calendario clínico.
+            </p>
+            <div className="mt-4 text-sm font-medium text-sky-700 dark:text-sky-300">
+              Abrir agenda
+            </div>
+          </button>
+
+          <button onClick={irANuevoPaciente} className={moduleCardClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Pacientes
+                </div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {pacientes.length}
+                </div>
+              </div>
+              <div className="rounded-xl bg-emerald-100 px-3 py-2 text-xl dark:bg-emerald-900/40">
+                🐾
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              Crear paciente, buscar tutor y vincular reservas.
+            </p>
+            <div className="mt-4 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              Nuevo paciente
+            </div>
+          </button>
+
+          <button onClick={irAFichas} className={moduleCardClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Fichas
+                </div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {pacientes.length}
+                </div>
+              </div>
+              <div className="rounded-xl bg-indigo-100 px-3 py-2 text-xl dark:bg-indigo-900/40">
+                📋
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              Historial clínico, atenciones y recetas.
+            </p>
+            <div className="mt-4 text-sm font-medium text-indigo-700 dark:text-indigo-300">
+              Ver fichas
+            </div>
+          </button>
+
+          <Link href="/configuracion" className={moduleCardClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Clínica
+                </div>
+                <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+                  Activa
+                </div>
+              </div>
+              <div className="rounded-xl bg-violet-100 px-3 py-2 text-xl dark:bg-violet-900/40">
+                ⚙️
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              Datos de clínica, veterinarios, firmas y recetas.
+            </p>
+            <div className="mt-4 text-sm font-medium text-violet-700 dark:text-violet-300">
+              Configurar
+            </div>
+          </Link>
+
+          <button onClick={irAReservas} className={moduleCardClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Recordatorios
+                </div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  0
+                </div>
+              </div>
+              <div className="rounded-xl bg-amber-100 px-3 py-2 text-xl dark:bg-amber-900/40">
+                🔔
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              Próximo módulo: controles por correo y WhatsApp.
+            </p>
+            <div className="mt-4 text-sm font-medium text-amber-700 dark:text-amber-300">
+              Preparar controles
+            </div>
+          </button>
+
+          <div className={moduleCardClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Ventas
+                </div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  0
+                </div>
+              </div>
+              <div className="rounded-xl bg-rose-100 px-3 py-2 text-xl dark:bg-rose-900/40">
+                🧾
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              Boletas, servicios y productos vendidos.
+            </p>
+            <div className="mt-4 text-sm font-medium text-slate-400">
+              Módulo en diseño
+            </div>
+          </div>
+
+          <div className={moduleCardClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Inventario
+                </div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  0
+                </div>
+              </div>
+              <div className="rounded-xl bg-teal-100 px-3 py-2 text-xl dark:bg-teal-900/40">
+                📦
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              Stock, vencimientos y alertas de reposición.
+            </p>
+            <div className="mt-4 text-sm font-medium text-slate-400">
+              Módulo en diseño
+            </div>
+          </div>
+
+          <div className={moduleCardClass}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Próximas citas
+                </div>
+                <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+                  {proximasCitas.length}
+                </div>
+              </div>
+              <div className="rounded-xl bg-slate-100 px-3 py-2 text-xl dark:bg-slate-800">
+                ⏱️
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              Vista rápida de la operación de los próximos días.
+            </p>
+            <div className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">
+              {proximasCitas[0]
+                ? `${proximasCitas[0].fecha} · ${proximasCitas[0].hora}`
+                : 'Sin citas próximas'}
+            </div>
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <div ref={nuevoPacienteRef} className={cardClass}>
@@ -1522,7 +1724,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className={cardClass}>
+        <div ref={fichasRef} className={cardClass}>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
             Fichas de pacientes
           </h2>
@@ -1681,7 +1883,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className={cardClass}>
+        <div ref={reservasRef} className={cardClass}>
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
