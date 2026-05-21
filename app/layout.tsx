@@ -27,12 +27,12 @@ export default function RootLayout({
   return (
     <html lang="es" className={dark ? 'dark' : ''} suppressHydrationWarning>
       <body>
-        <div className="fixed right-4 top-4 z-50">
+        <div className="fixed right-3 top-3 z-50 sm:right-4 sm:top-4">
           <button
             onClick={() => setDark(!dark)}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+            className="min-h-10 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50 sm:px-4 sm:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
           >
-            {dark ? '☀️ Modo claro' : '🌙 Modo oscuro'}
+            {dark ? 'Modo claro' : 'Modo oscuro'}
           </button>
         </div>
 
