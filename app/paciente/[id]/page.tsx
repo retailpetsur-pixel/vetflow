@@ -1494,7 +1494,7 @@ ${indicacionesAtencion.trim()}
   <div className="border-t border-indigo-400 pt-2 font-bold text-indigo-700">
 	    {veterinarioRecetaVisible?.nombre || '-'}
 	  </div>
-	
+
 	  <div>{veterinarioRecetaVisible?.rut || '-'}</div>
 </div>
                   </div>
