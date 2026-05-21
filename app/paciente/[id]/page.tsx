@@ -11,6 +11,7 @@ type Paciente = {
   id: number
   nombre: string
   especie: string
+  sexo?: string | null
   tutor_id: number
   tutores?: {
     nombre: string
@@ -46,6 +47,9 @@ type Receta = {
     nombre: string
     cargo: string | null
     rut: string | null
+    telefono?: string | null
+    direccion?: string | null
+    firma_url?: string | null
   } | null
 }
 
@@ -56,6 +60,28 @@ type Configuracion = {
   telefono: string | null
   email: string | null
   logo_url: string | null
+}
+
+type Producto = {
+  id: number
+  nombre: string
+  codigo_barras: string | null
+  categoria: string | null
+  unidad: string | null
+  precio: number | null
+  stock: number | null
+  stock_minimo: number | null
+  activo: boolean | null
+}
+
+type ItemVentaAtencion = {
+  id: string
+  productoId: string
+  nombre: string
+  categoria: string
+  cantidad: string
+  precioUnitario: string
+  afectaInventario: boolean
 }
 
 function fechaHoyISO() {
@@ -69,6 +95,38 @@ function formatFecha(fecha: string) {
   return d.toLocaleDateString('es-CL')
 }
 
+function esperarFrame() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+}
+
+function crearItemVenta(): ItemVentaAtencion {
+  return {
+    id: crypto.randomUUID(),
+    productoId: '',
+    nombre: '',
+    categoria: 'Procedimiento',
+    cantidad: '1',
+    precioUnitario: '',
+    afectaInventario: false,
+  }
+}
+
+function numeroDesdeInput(valor: string, fallback = 0) {
+  const normalizado = valor.replace(',', '.')
+  const numero = Number(normalizado)
+  return Number.isFinite(numero) ? numero : fallback
+}
+
+function formatoCLP(valor: number) {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    maximumFractionDigits: 0,
+  }).format(valor)
+}
+
 export default function FichaPacientePage() {
   const params = useParams()
   const id = params.id as string
@@ -78,12 +136,17 @@ export default function FichaPacientePage() {
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [veterinarios, setVeterinarios] = useState<Veterinario[]>([])
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(null)
+  const [productos, setProductos] = useState<Producto[]>([])
 
-  const [nuevaAtencion, setNuevaAtencion] = useState('')
   const [motivoVisita, setMotivoVisita] = useState('')
   const [anamnesis, setAnamnesis] = useState('')
   const [examenClinico, setExamenClinico] = useState('')
   const [inyectablesProcedimientos, setInyectablesProcedimientos] = useState('')
+  const [suministrosComprasAtencion, setSuministrosComprasAtencion] = useState('')
+  const [itemsVentaAtencion, setItemsVentaAtencion] = useState<ItemVentaAtencion[]>([])
+  const [codigoBarrasVenta, setCodigoBarrasVenta] = useState('')
+  const [familiaVentaActiva, setFamiliaVentaActiva] = useState('')
+  const [sugerenciasVentaAbiertas, setSugerenciasVentaAbiertas] = useState<string | null>(null)
   const [tratamientoAtencion, setTratamientoAtencion] = useState('')
   const [indicacionesAtencion, setIndicacionesAtencion] = useState('')
   const [loading, setLoading] = useState(true)
@@ -95,25 +158,131 @@ export default function FichaPacientePage() {
   const [fechaReceta, setFechaReceta] = useState(fechaHoyISO())
   const [veterinarioId, setVeterinarioId] = useState('')
   const [pinIngresado, setPinIngresado] = useState('')
-  const [diagnostico, setDiagnostico] = useState('')
   const [tratamiento, setTratamiento] = useState('')
-  const [indicaciones, setIndicaciones] = useState('')
-  const [observaciones, setObservaciones] = useState('')
+  const [indicacionControl, setIndicacionControl] = useState('')
 
   const [recetaGenerada, setRecetaGenerada] = useState(false)
   const [ultimaRecetaId, setUltimaRecetaId] = useState<number | null>(null)
+  const [recetaVista, setRecetaVista] = useState<Receta | null>(null)
 
   const recetaRef = useRef<HTMLDivElement | null>(null)
   const recetaSectionRef = useRef<HTMLDivElement | null>(null)
 
   const cardClass =
-    'rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900'
+    'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900'
   const inputClass =
-    'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800'
+    'w-full min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800'
 
   const veterinarioSeleccionado = useMemo(() => {
     return veterinarios.find((v) => String(v.id) === veterinarioId) || null
   }, [veterinarioId, veterinarios])
+
+  const veterinarioRecetaVisible = recetaVista?.veterinarios || veterinarioSeleccionado
+  const fechaRecetaVisible = recetaVista?.fecha || fechaReceta
+  const rpVisible = recetaVista?.tratamiento || tratamiento
+  const indicacionControlVisible = recetaVista?.indicaciones || indicacionControl
+  const recetaIdVisible = recetaVista?.id || ultimaRecetaId
+  const itemsVentaValidos = useMemo(() => {
+    return itemsVentaAtencion
+      .map((item) => {
+        const cantidad = Math.max(numeroDesdeInput(item.cantidad, 1), 0)
+        const precioUnitario = Math.max(numeroDesdeInput(item.precioUnitario), 0)
+
+        return {
+          ...item,
+          productoId: item.productoId,
+          nombre: item.nombre.trim(),
+          cantidad,
+          precioUnitario,
+          total: cantidad * precioUnitario,
+        }
+      })
+      .filter((item) => item.nombre)
+  }, [itemsVentaAtencion])
+  const totalVentaAtencion = useMemo(() => {
+    return itemsVentaValidos.reduce((total, item) => total + item.total, 0)
+  }, [itemsVentaValidos])
+  const familiasProductos = useMemo(() => {
+    return Array.from(
+      new Set(productos.map((producto) => producto.categoria || 'Sin categoría'))
+    ).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [productos])
+
+  const actualizarItemVenta = (
+    itemId: string,
+    campo: keyof Omit<ItemVentaAtencion, 'id'>,
+    valor: string | boolean
+  ) => {
+    setItemsVentaAtencion((items) =>
+      items.map((item) => (item.id === itemId ? { ...item, [campo]: valor } : item))
+    )
+  }
+
+  const quitarItemVenta = (itemId: string) => {
+    setItemsVentaAtencion((items) => items.filter((item) => item.id !== itemId))
+  }
+
+  const seleccionarProductoVentaDesdeBusqueda = (itemId: string, producto: Producto) => {
+    setItemsVentaAtencion((items) =>
+      items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              productoId: String(producto.id),
+              nombre: producto.nombre,
+              categoria: producto.categoria || 'Producto',
+              precioUnitario: producto.precio ? String(Math.round(Number(producto.precio))) : '',
+              afectaInventario: true,
+            }
+          : item
+      )
+    )
+    setSugerenciasVentaAbiertas(null)
+  }
+
+  const sugerenciasProductoVenta = (item: ItemVentaAtencion) => {
+    const texto = item.nombre.trim().toLowerCase()
+    const familia = familiaVentaActiva.trim()
+
+    return productos
+      .filter((producto) => {
+        const coincideFamilia = !familia || (producto.categoria || 'Sin categoría') === familia
+        if (!coincideFamilia) return false
+        if (!texto) return true
+
+        return (
+          producto.nombre.toLowerCase().includes(texto) ||
+          (producto.codigo_barras || '').includes(texto)
+        )
+      })
+      .slice(0, 8)
+  }
+
+  const itemDesdeProducto = (producto: Producto): ItemVentaAtencion => ({
+    id: crypto.randomUUID(),
+    productoId: String(producto.id),
+    nombre: producto.nombre,
+    categoria: producto.categoria || 'Producto',
+    cantidad: '1',
+    precioUnitario: producto.precio ? String(Math.round(Number(producto.precio))) : '',
+    afectaInventario: true,
+  })
+
+  const agregarProductoPorCodigo = () => {
+    const codigo = codigoBarrasVenta.trim()
+    if (!codigo) return
+
+    const producto = productos.find((p) => p.codigo_barras === codigo)
+
+    if (!producto) {
+      alert(`No encontré un producto con código ${codigo}`)
+      setCodigoBarrasVenta('')
+      return
+    }
+
+    setItemsVentaAtencion((items) => [...items, itemDesdeProducto(producto)])
+    setCodigoBarrasVenta('')
+  }
 
   const irAReceta = () => {
     setTimeout(() => {
@@ -124,16 +293,23 @@ export default function FichaPacientePage() {
     }, 100)
   }
 
+  const verRecetaEmitida = (receta: Receta) => {
+    setRecetaVista(receta)
+    setMostrarReceta(true)
+    setRecetaGenerada(false)
+    setUltimaRecetaId(receta.id)
+    setFechaReceta(receta.fecha)
+    setTratamiento(receta.tratamiento)
+    setIndicacionControl(receta.indicaciones || '')
+    setVeterinarioId('')
+    setPinIngresado('')
+    irAReceta()
+  }
+
   const cargarPaciente = async () => {
     const { data, error } = await supabase
       .from('pacientes')
-      .select(`
-        id,
-        nombre,
-        especie,
-        tutor_id,
-        tutores ( nombre, telefono )
-      `)
+      .select('*, tutores ( nombre, telefono )')
       .eq('id', Number(id))
       .single()
 
@@ -207,7 +383,10 @@ const cargarConfiguracion = async () => {
         veterinarios (
           nombre,
           cargo,
-          rut
+          rut,
+          telefono,
+          direccion,
+          firma_url
         )
       `)
       .eq('paciente_id', Number(id))
@@ -223,7 +402,30 @@ const cargarConfiguracion = async () => {
     setRecetas(listaRecetas)
   }
 
+  const cargarProductos = async () => {
+    const { data, error } = await supabase
+      .from('productos')
+      .select('*')
+      .eq('activo', true)
+      .order('nombre', { ascending: true })
+
+    if (error) {
+      console.error('Error cargando productos:', error)
+      setProductos([])
+      return
+    }
+
+    setProductos(data ? (((data ?? []) as unknown) as Producto[]) : [])
+  }
+
 const guardarAtencion = async () => {
+  const detalleItemsVenta = itemsVentaValidos
+    .map((item) => {
+      const total = item.total > 0 ? ` - ${formatoCLP(item.total)}` : ''
+      return `- ${item.nombre} (${item.categoria}) x ${item.cantidad}${total}`
+    })
+    .join('\n')
+
   const descripcionFinal = `
 Motivo de visita:
 ${motivoVisita.trim()}
@@ -236,6 +438,10 @@ ${examenClinico.trim()}
 
 Inyectables / procedimientos:
 ${inyectablesProcedimientos.trim()}
+
+Suministros / compras asociadas:
+${suministrosComprasAtencion.trim()}
+${detalleItemsVenta ? `\n${detalleItemsVenta}` : ''}
 
 Tratamiento:
 ${tratamientoAtencion.trim()}
@@ -251,26 +457,103 @@ ${indicacionesAtencion.trim()}
 
   setGuardando(true)
 
-  const { error } = await supabase.from('atenciones').insert([
-    {
-      paciente_id: Number(id),
-      descripcion: descripcionFinal,
-    },
-  ])
-
-  setGuardando(false)
+  const { data: atencionCreada, error } = await supabase
+    .from('atenciones')
+    .insert([
+      {
+        paciente_id: Number(id),
+        descripcion: descripcionFinal,
+      },
+    ])
+    .select('id')
+    .single()
 
   if (error) {
+    setGuardando(false)
     console.error(error)
     alert('Error guardando atención')
     return
   }
 
-  setNuevaAtencion('')
+  if (itemsVentaValidos.length > 0) {
+    const { data: ventaCreada, error: errorVenta } = await supabase
+      .from('ventas')
+      .insert([
+        {
+          paciente_id: Number(id),
+          atencion_id: atencionCreada?.id ?? null,
+          fecha: fechaHoyISO(),
+          origen: 'atencion',
+          estado: 'pendiente',
+          notas: suministrosComprasAtencion.trim() || null,
+          total: totalVentaAtencion,
+        },
+      ])
+      .select('id')
+      .single()
+
+    if (errorVenta) {
+      setGuardando(false)
+      console.error(errorVenta)
+      alert(
+        'La atención quedó guardada, pero falta activar las tablas de ventas en Supabase para vincular los productos.'
+      )
+      await cargarAtenciones()
+      return
+    }
+
+    const ventaItems = itemsVentaValidos.map((item) => ({
+      venta_id: ventaCreada.id,
+      producto_id: item.productoId ? Number(item.productoId) : null,
+      nombre: item.nombre,
+      categoria: item.categoria,
+      cantidad: item.cantidad,
+      precio_unitario: item.precioUnitario,
+      total: item.total,
+      afecta_inventario: item.afectaInventario,
+    }))
+
+    const { error: errorItems } = await supabase.from('venta_items').insert(ventaItems)
+
+    if (errorItems) {
+      setGuardando(false)
+      console.error(errorItems)
+      alert('La atención y la venta quedaron creadas, pero hubo un problema guardando el detalle.')
+      await cargarAtenciones()
+      return
+    }
+
+    await Promise.all(
+      itemsVentaValidos
+        .filter((item) => item.afectaInventario && item.productoId)
+        .map(async (item) => {
+          const producto = productos.find((p) => String(p.id) === item.productoId)
+          if (!producto) return
+
+          const stockActual = Number(producto.stock || 0)
+          const nuevoStock = Math.max(stockActual - item.cantidad, 0)
+          const { error: errorStock } = await supabase
+            .from('productos')
+            .update({ stock: nuevoStock })
+            .eq('id', Number(item.productoId))
+
+          if (errorStock) {
+            console.error('Error actualizando stock:', errorStock)
+          }
+        })
+    )
+
+    await cargarProductos()
+  }
+
+  setGuardando(false)
+
   setMotivoVisita('')
   setAnamnesis('')
   setExamenClinico('')
   setInyectablesProcedimientos('')
+  setSuministrosComprasAtencion('')
+  setItemsVentaAtencion([])
   setTratamientoAtencion('')
   setIndicacionesAtencion('')
 
@@ -281,17 +564,16 @@ ${indicacionesAtencion.trim()}
     setFechaReceta(fechaHoyISO())
     setVeterinarioId('')
     setPinIngresado('')
-    setDiagnostico('')
     setTratamiento('')
-    setIndicaciones('')
-    setObservaciones('')
+    setIndicacionControl('')
     setRecetaGenerada(false)
     setUltimaRecetaId(null)
+    setRecetaVista(null)
   }
 
   const generarReceta = async () => {
     if (!veterinarioId || !tratamiento.trim()) {
-      alert('Debes seleccionar veterinario y escribir el tratamiento')
+      alert('Debes seleccionar veterinario y escribir la receta')
       return
     }
 
@@ -314,10 +596,10 @@ ${indicacionesAtencion.trim()}
           paciente_id: Number(id),
           veterinario_id: Number(veterinarioId),
           fecha: fechaReceta,
-          diagnostico: diagnostico.trim() || null,
+          diagnostico: null,
           tratamiento: tratamiento.trim(),
-          indicaciones: indicaciones.trim() || null,
-          observaciones: observaciones.trim() || null,
+          indicaciones: indicacionControl.trim() || null,
+          observaciones: null,
         },
       ])
       .select()
@@ -333,6 +615,7 @@ ${indicacionesAtencion.trim()}
 
     setUltimaRecetaId(data?.id ?? null)
     setRecetaGenerada(true)
+    setRecetaVista(null)
     await cargarRecetas()
   }
 
@@ -345,11 +628,19 @@ ${indicacionesAtencion.trim()}
     const prevColor = elemento.style.color
     const prevBoxShadow = elemento.style.boxShadow
     const prevBorder = elemento.style.border
+    const prevWidth = elemento.style.width
+    const prevMinWidth = elemento.style.minWidth
+    const prevMaxWidth = elemento.style.maxWidth
+    const prevBoxSizing = elemento.style.boxSizing
 
     elemento.style.background = '#ffffff'
     elemento.style.color = '#111827'
     elemento.style.boxShadow = 'none'
     elemento.style.border = '1px solid #e5e7eb'
+    elemento.style.width = '800px'
+    elemento.style.minWidth = '800px'
+    elemento.style.maxWidth = '800px'
+    elemento.style.boxSizing = 'border-box'
 
     const hijos = elemento.querySelectorAll('*')
     const anteriores: Array<{
@@ -377,6 +668,10 @@ ${indicacionesAtencion.trim()}
       elemento.style.color = prevColor
       elemento.style.boxShadow = prevBoxShadow
       elemento.style.border = prevBorder
+      elemento.style.width = prevWidth
+      elemento.style.minWidth = prevMinWidth
+      elemento.style.maxWidth = prevMaxWidth
+      elemento.style.boxSizing = prevBoxSizing
 
       anteriores.forEach(({ el, color, background, borderColor }) => {
         el.style.color = color
@@ -384,6 +679,30 @@ ${indicacionesAtencion.trim()}
         el.style.borderColor = borderColor
       })
     }
+  }
+
+  const crearCanvasReceta = async () => {
+    if (!recetaRef.current) {
+      throw new Error('No se encontró la receta para exportar')
+    }
+
+    await esperarFrame()
+
+    const exportWidth = 800
+    const exportHeight = recetaRef.current.scrollHeight
+
+    return html2canvas(recetaRef.current, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+      width: exportWidth,
+      height: exportHeight,
+      windowWidth: exportWidth,
+      windowHeight: exportHeight,
+      scrollX: 0,
+      scrollY: 0,
+    })
   }
 
   const descargarImagen = async () => {
@@ -395,14 +714,7 @@ ${indicacionesAtencion.trim()}
     const restaurar = prepararRecetaParaExportar()
 
     try {
-      const canvas = await html2canvas(recetaRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        logging: false,
-        windowWidth: recetaRef.current.scrollWidth,
-        windowHeight: recetaRef.current.scrollHeight,
-      })
+      const canvas = await crearCanvasReceta()
 
       const dataUrl = canvas.toDataURL('image/png', 1.0)
       const link = document.createElement('a')
@@ -432,16 +744,7 @@ ${indicacionesAtencion.trim()}
     const restaurar = prepararRecetaParaExportar()
 
     try {
-      const canvas = await html2canvas(recetaRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        logging: false,
-        windowWidth: recetaRef.current.scrollWidth,
-        windowHeight: recetaRef.current.scrollHeight,
-      })
-
-      const imgData = canvas.toDataURL('image/png', 1.0)
+      const canvas = await crearCanvasReceta()
 
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -453,23 +756,45 @@ ${indicacionesAtencion.trim()}
       const pdfHeight = 297
       const margin = 10
       const usableWidth = pdfWidth - margin * 2
-      const imgHeight = (canvas.height * usableWidth) / canvas.width
+      const usableHeight = pdfHeight - margin * 2
+      const pagePixelHeight = Math.floor((canvas.width * usableHeight) / usableWidth)
 
-      if (imgHeight <= pdfHeight - margin * 2) {
-        pdf.addImage(imgData, 'PNG', margin, margin, usableWidth, imgHeight)
-      } else {
-        let heightLeft = imgHeight
-        let position = 0
+      let sourceY = 0
+      let pageIndex = 0
 
-        pdf.addImage(imgData, 'PNG', margin, margin + position, usableWidth, imgHeight)
-        heightLeft -= pdfHeight - margin * 2
+      while (sourceY < canvas.height) {
+        const sliceHeight = Math.min(pagePixelHeight, canvas.height - sourceY)
+        const pageCanvas = document.createElement('canvas')
+        pageCanvas.width = canvas.width
+        pageCanvas.height = sliceHeight
 
-        while (heightLeft > 0) {
-          position = heightLeft - imgHeight
-          pdf.addPage()
-          pdf.addImage(imgData, 'PNG', margin, margin + position, usableWidth, imgHeight)
-          heightLeft -= pdfHeight - margin * 2
+        const ctx = pageCanvas.getContext('2d')
+        if (!ctx) {
+          throw new Error('No se pudo preparar la página del PDF')
         }
+
+        ctx.drawImage(
+          canvas,
+          0,
+          sourceY,
+          canvas.width,
+          sliceHeight,
+          0,
+          0,
+          canvas.width,
+          sliceHeight
+        )
+
+        if (pageIndex > 0) {
+          pdf.addPage()
+        }
+
+        const sliceData = pageCanvas.toDataURL('image/png', 1.0)
+        const sliceHeightMm = (sliceHeight * usableWidth) / canvas.width
+        pdf.addImage(sliceData, 'PNG', margin, margin, usableWidth, sliceHeightMm)
+
+        sourceY += sliceHeight
+        pageIndex += 1
       }
 
       const nombreArchivo = `receta-${paciente?.nombre || 'paciente'}-${fechaReceta}.pdf`
@@ -495,14 +820,7 @@ ${indicacionesAtencion.trim()}
     const restaurar = prepararRecetaParaExportar()
 
     try {
-      const canvas = await html2canvas(recetaRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        logging: false,
-        windowWidth: recetaRef.current.scrollWidth,
-        windowHeight: recetaRef.current.scrollHeight,
-      })
+      const canvas = await crearCanvasReceta()
 
       const dataUrl = canvas.toDataURL('image/png')
       const response = await fetch(dataUrl)
@@ -542,6 +860,7 @@ ${indicacionesAtencion.trim()}
         cargarVeterinarios(),
         cargarRecetas(),
         cargarConfiguracion(),
+        cargarProductos(),
       ])
       setLoading(false)
     }
@@ -551,8 +870,8 @@ ${indicacionesAtencion.trim()}
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-100 p-6 dark:bg-slate-950">
-        <div className="mx-auto max-w-5xl pt-12 text-slate-600 dark:text-slate-300">
+      <main className="min-h-screen bg-slate-100 px-4 py-5 sm:p-6 dark:bg-slate-950">
+        <div className="mx-auto max-w-5xl pt-14 text-slate-600 sm:pt-12 dark:text-slate-300">
           Cargando ficha...
         </div>
       </main>
@@ -561,8 +880,8 @@ ${indicacionesAtencion.trim()}
 
   if (!paciente) {
     return (
-      <main className="min-h-screen bg-slate-100 p-6 dark:bg-slate-950">
-        <div className="mx-auto max-w-5xl pt-12">
+      <main className="min-h-screen bg-slate-100 px-4 py-5 sm:p-6 dark:bg-slate-950">
+        <div className="mx-auto max-w-5xl pt-14 sm:pt-12">
           <p className="text-slate-700 dark:text-slate-200">Paciente no encontrado</p>
           <Link
             href="/dashboard"
@@ -576,8 +895,8 @@ ${indicacionesAtencion.trim()}
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 dark:bg-slate-950">
-      <div className="mx-auto max-w-5xl space-y-6 pt-12">
+    <main className="min-h-screen bg-slate-100 px-4 py-5 sm:p-6 dark:bg-slate-950">
+      <div className="mx-auto max-w-5xl space-y-6 pt-14 sm:pt-12">
         <Link
           href="/dashboard"
           className="text-blue-600 hover:underline dark:text-blue-400"
@@ -588,7 +907,7 @@ ${indicacionesAtencion.trim()}
         <div className={cardClass}>
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl dark:text-white">
                 Ficha clínica de {paciente.nombre}
               </h1>
 
@@ -597,6 +916,7 @@ ${indicacionesAtencion.trim()}
                   <p><strong>ID:</strong> {paciente.id}</p>
                   <p><strong>Nombre:</strong> {paciente.nombre}</p>
                   <p><strong>Especie:</strong> {paciente.especie}</p>
+                  <p><strong>Sexo:</strong> {paciente.sexo || '-'}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -613,7 +933,7 @@ ${indicacionesAtencion.trim()}
                 setUltimaRecetaId(null)
                 irAReceta()
               }}
-              className="rounded-xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-center font-medium text-white transition hover:bg-slate-800 sm:w-auto dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
             >
               Emitir receta
             </button>
@@ -676,6 +996,194 @@ ${indicacionesAtencion.trim()}
 
     <div>
       <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        Suministros / compras asociadas
+      </label>
+      <textarea
+        className={`${inputClass} min-h-[100px]`}
+        placeholder="Ej: vacuna séxtuple, antiparasitario, collar, alimento, procedimiento vendido..."
+        value={suministrosComprasAtencion}
+        onChange={(e) => setSuministrosComprasAtencion(e.target.value)}
+      />
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        Queda en la ficha clínica y nos deja preparada la conexión con ventas e inventario.
+      </p>
+    </div>
+
+    <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-slate-900 dark:text-white">
+            Venta asociada a esta atención
+          </h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Agrega medicamentos, procedimientos o productos comprados durante la consulta.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setItemsVentaAtencion((items) => [...items, crearItemVenta()])}
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:w-auto dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Agregar ítem
+        </button>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
+        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Lector de código de barras
+        </label>
+        <input
+          className={inputClass}
+          placeholder="Escanea o escribe el código y presiona Enter"
+          value={codigoBarrasVenta}
+          onChange={(e) => setCodigoBarrasVenta(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') agregarProductoPorCodigo()
+          }}
+        />
+      </div>
+
+      <div className="mt-3 max-w-xs">
+        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Familia
+        </label>
+        <select
+          className={inputClass}
+          value={familiaVentaActiva}
+          onChange={(e) => setFamiliaVentaActiva(e.target.value)}
+        >
+          <option value="">Todas</option>
+          {familiasProductos.map((familia) => (
+            <option key={familia} value={familia}>
+              {familia}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {itemsVentaAtencion.length > 0 ? (
+        <div className="mt-4 space-y-3">
+          {itemsVentaAtencion.map((item) => {
+            const cantidad = Math.max(numeroDesdeInput(item.cantidad, 1), 0)
+            const precioUnitario = Math.max(numeroDesdeInput(item.precioUnitario), 0)
+            const total = cantidad * precioUnitario
+            const sugerencias = sugerenciasProductoVenta(item)
+
+            return (
+              <div
+                key={item.id}
+                className="grid grid-cols-1 gap-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-950 md:grid-cols-[1.4fr_1fr_0.6fr_0.8fr_auto]"
+              >
+                <div className="relative md:col-span-5">
+                  <input
+                    className={inputClass}
+                    placeholder="Escribe producto o servicio"
+                    value={item.nombre}
+                    onChange={(e) => {
+                      actualizarItemVenta(item.id, 'nombre', e.target.value)
+                      actualizarItemVenta(item.id, 'productoId', '')
+                      actualizarItemVenta(item.id, 'afectaInventario', false)
+                      setSugerenciasVentaAbiertas(item.id)
+                    }}
+                    onFocus={() => setSugerenciasVentaAbiertas(item.id)}
+                    onBlur={() => {
+                      setTimeout(() => setSugerenciasVentaAbiertas(null), 120)
+                    }}
+                  />
+                  {sugerenciasVentaAbiertas === item.id &&
+                    item.nombre.trim() &&
+                    sugerencias.length > 0 && (
+                    <div className="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
+                      {sugerencias.map((producto) => (
+                        <button
+                          type="button"
+                          key={producto.id}
+                          onClick={() =>
+                            seleccionarProductoVentaDesdeBusqueda(item.id, producto)
+                          }
+                          className="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+                        >
+                          <div className="font-medium text-slate-900 dark:text-white">
+                            {producto.nombre}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {producto.categoria || 'Sin categoría'} ·{' '}
+                            {producto.codigo_barras || 'sin código'} · stock{' '}
+                            {Number(producto.stock || 0)} ·{' '}
+                            {formatoCLP(Number(producto.precio || 0))}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <select
+                  className={inputClass}
+                  value={item.categoria}
+                  onChange={(e) => actualizarItemVenta(item.id, 'categoria', e.target.value)}
+                >
+                  <option>Procedimiento</option>
+                  <option>Medicamento</option>
+                  <option>Vacuna</option>
+                  <option>Producto</option>
+                  <option>Alimento</option>
+                  <option>Otro</option>
+                </select>
+                <input
+                  className={inputClass}
+                  placeholder="Cant."
+                  inputMode="decimal"
+                  value={item.cantidad}
+                  onChange={(e) => actualizarItemVenta(item.id, 'cantidad', e.target.value)}
+                />
+                <input
+                  className={inputClass}
+                  placeholder="Precio"
+                  inputMode="numeric"
+                  value={item.precioUnitario}
+                  onChange={(e) =>
+                    actualizarItemVenta(item.id, 'precioUnitario', e.target.value)
+                  }
+                />
+                <div className="flex items-center justify-between gap-3 md:flex-col md:items-end">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {formatoCLP(total)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => quitarItemVenta(item.id)}
+                    className="text-sm font-medium text-rose-600 dark:text-rose-300"
+                  >
+                    Quitar
+                  </button>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 md:col-span-5">
+                  <input
+                    type="checkbox"
+                    checked={item.afectaInventario}
+                    onChange={(e) =>
+                      actualizarItemVenta(item.id, 'afectaInventario', e.target.checked)
+                    }
+                  />
+                  Descontar de inventario al guardar
+                </label>
+              </div>
+            )
+          })}
+
+          <div className="flex justify-end text-lg font-bold text-slate-900 dark:text-white">
+            Total: {formatoCLP(totalVentaAtencion)}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+          Sin venta asociada para esta atención.
+        </p>
+      )}
+    </div>
+
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
         Tratamiento
       </label>
       <textarea
@@ -702,7 +1210,7 @@ ${indicacionesAtencion.trim()}
   <button
     onClick={guardarAtencion}
     disabled={guardando}
-    className="mt-6 rounded-xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+    className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-center font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 sm:w-auto dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
   >
     {guardando ? 'Guardando...' : 'Guardar atención'}
   </button>
@@ -753,14 +1261,17 @@ ${indicacionesAtencion.trim()}
                   </div>
                   <div className="text-slate-800 dark:text-slate-200">
                     <div><strong>Veterinario:</strong> {r.veterinarios?.nombre || '-'}</div>
-                    {r.diagnostico ? <div><strong>Diagnóstico:</strong> {r.diagnostico}</div> : null}
-                    <div className="mt-2 whitespace-pre-wrap"><strong>Tratamiento:</strong> {r.tratamiento}</div>
+                    <div className="mt-2 whitespace-pre-wrap"><strong>Rp:</strong> {r.tratamiento}</div>
                     {r.indicaciones ? (
-                      <div className="mt-2 whitespace-pre-wrap"><strong>Indicaciones:</strong> {r.indicaciones}</div>
+                      <div className="mt-2 whitespace-pre-wrap"><strong>Indicación/Control:</strong> {r.indicaciones}</div>
                     ) : null}
-                    {r.observaciones ? (
-                      <div className="mt-2 whitespace-pre-wrap"><strong>Observaciones:</strong> {r.observaciones}</div>
-                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => verRecetaEmitida(r)}
+                      className="mt-3 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium dark:border-slate-700"
+                    >
+                      Ver receta
+                    </button>
                   </div>
                 </div>
               ))
@@ -776,7 +1287,7 @@ ${indicacionesAtencion.trim()}
           <div ref={recetaSectionRef} className={cardClass}>
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-                Emitir receta médica
+                {recetaVista ? 'Receta emitida' : 'Emitir receta médica'}
               </h2>
 
               <button
@@ -790,6 +1301,8 @@ ${indicacionesAtencion.trim()}
               </button>
             </div>
 
+            {!recetaVista && (
+            <>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
               <input
                 type="date"
@@ -829,18 +1342,9 @@ ${indicacionesAtencion.trim()}
             </div>
 
             <div className="mt-3">
-              <input
-                className={inputClass}
-                placeholder="Diagnóstico"
-                value={diagnostico}
-                onChange={(e) => setDiagnostico(e.target.value)}
-              />
-            </div>
-
-            <div className="mt-3">
               <textarea
-                className={`${inputClass} min-h-[120px]`}
-                placeholder="Tratamiento / medicamentos"
+                className={`${inputClass} min-h-[160px]`}
+                placeholder="Rp"
                 value={tratamiento}
                 onChange={(e) => setTratamiento(e.target.value)}
               />
@@ -848,32 +1352,27 @@ ${indicacionesAtencion.trim()}
 
             <div className="mt-3">
               <textarea
-                className={`${inputClass} min-h-[100px]`}
-                placeholder="Indicaciones"
-                value={indicaciones}
-                onChange={(e) => setIndicaciones(e.target.value)}
+                className={`${inputClass} min-h-[120px]`}
+                placeholder="Indicación/Control"
+                value={indicacionControl}
+                onChange={(e) => setIndicacionControl(e.target.value)}
               />
             </div>
-
-            <div className="mt-3">
-              <textarea
-                className={`${inputClass} min-h-[100px]`}
-                placeholder="Observaciones"
-                value={observaciones}
-                onChange={(e) => setObservaciones(e.target.value)}
-              />
-            </div>
+            </>
+            )}
 
             <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                onClick={generarReceta}
-                disabled={guardandoReceta}
-                className="rounded-xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-              >
-                {guardandoReceta ? 'Generando...' : 'Generar receta'}
-              </button>
+              {!recetaVista && (
+                <button
+                  onClick={generarReceta}
+                  disabled={guardandoReceta}
+                  className="rounded-xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                >
+                  {guardandoReceta ? 'Generando...' : 'Generar receta'}
+                </button>
+              )}
 
-              {recetaGenerada && (
+              {(recetaGenerada || recetaVista) && (
                 <>
                   <button
                     onClick={descargarPDF}
@@ -899,11 +1398,11 @@ ${indicacionesAtencion.trim()}
               )}
             </div>
 
-            {recetaGenerada && (
-              <div className="mt-6">
+            {(recetaGenerada || recetaVista) && (
+              <div className="mt-6 overflow-x-auto pb-2">
                 <div
                   ref={recetaRef}
-                  className="mx-auto max-w-[800px] rounded-2xl bg-white p-8 text-slate-800"
+                  className="mx-auto w-[800px] max-w-none rounded-2xl bg-white p-8 text-slate-800"
                 >
                   <div className="mb-8 flex items-start justify-between gap-6">
 <div>
@@ -943,11 +1442,11 @@ ${indicacionesAtencion.trim()}
 </div>
 
                     <div className="text-right text-sm">
-                      <div><strong>Dr/a.</strong> {veterinarioSeleccionado?.nombre || '-'}</div>
-                      <div><strong>Cargo:</strong> {veterinarioSeleccionado?.cargo || '-'}</div>
-                      <div><strong>RUT:</strong> {veterinarioSeleccionado?.rut || '-'}</div>
-                      <div><strong>Teléfono:</strong> {veterinarioSeleccionado?.telefono || '-'}</div>
-                      <div><strong>Dirección:</strong> {veterinarioSeleccionado?.direccion || '-'}</div>
+	                      <div><strong>Dr/a.</strong> {veterinarioRecetaVisible?.nombre || '-'}</div>
+	                      <div><strong>Cargo:</strong> {veterinarioRecetaVisible?.cargo || '-'}</div>
+	                      <div><strong>RUT:</strong> {veterinarioRecetaVisible?.rut || '-'}</div>
+	                      <div><strong>Teléfono:</strong> {veterinarioRecetaVisible?.telefono || '-'}</div>
+	                      <div><strong>Dirección:</strong> {veterinarioRecetaVisible?.direccion || '-'}</div>
                     </div>
                   </div>
 
@@ -963,29 +1462,14 @@ ${indicacionesAtencion.trim()}
                   </div>
 
                   <div className="mt-8 space-y-4">
-                    {diagnostico ? (
-                      <div>
-                        <div className="font-bold text-indigo-700">Diagnóstico</div>
-                        <div className="mt-1 whitespace-pre-wrap">{diagnostico}</div>
-                      </div>
-                    ) : null}
-
                     <div>
-                      <div className="font-bold text-indigo-700">Tratamiento</div>
-                      <div className="mt-1 whitespace-pre-wrap">{tratamiento}</div>
+                      <div className="font-bold text-indigo-700">Rp</div>
+                      <div className="mt-1 whitespace-pre-wrap">{rpVisible}</div>
                     </div>
-
-                    {indicaciones ? (
+                    {indicacionControlVisible ? (
                       <div>
-                        <div className="font-bold text-indigo-700">Indicaciones</div>
-                        <div className="mt-1 whitespace-pre-wrap">{indicaciones}</div>
-                      </div>
-                    ) : null}
-
-                    {observaciones ? (
-                      <div>
-                        <div className="font-bold text-indigo-700">Observaciones</div>
-                        <div className="mt-1 whitespace-pre-wrap">{observaciones}</div>
+                        <div className="font-bold text-indigo-700">Indicación/Control</div>
+                        <div className="mt-1 whitespace-pre-wrap">{indicacionControlVisible}</div>
                       </div>
                     ) : null}
                   </div>
@@ -993,33 +1477,33 @@ ${indicacionesAtencion.trim()}
                   <div className="mt-16 flex items-end justify-between">
                     <div>
                       <div className="font-bold text-indigo-700">Fecha</div>
-                      <div>{formatFecha(fechaReceta)}</div>
+                      <div>{formatFecha(fechaRecetaVisible)}</div>
                     </div>
 
 <div className="text-right">
-  {veterinarioSeleccionado?.firma_url ? (
-    <img
-      src={veterinarioSeleccionado.firma_url}
-      alt="Firma veterinario"
-      className="mb-4 ml-auto h-40 object-contain"
-    />
+	  {veterinarioRecetaVisible?.firma_url ? (
+	    <img
+	      src={veterinarioRecetaVisible.firma_url}
+	      alt="Firma veterinario"
+	      className="mb-4 ml-auto h-32 object-contain"
+	    />
   ) : (
     <div className="mb-6 text-4xl text-indigo-600">✍️</div>
   )}
 
   <div className="border-t border-indigo-400 pt-2 font-bold text-indigo-700">
-    {veterinarioSeleccionado?.nombre || '-'}
-  </div>
-
-  <div>{veterinarioSeleccionado?.rut || '-'}</div>
+	    {veterinarioRecetaVisible?.nombre || '-'}
+	  </div>
+	
+	  <div>{veterinarioRecetaVisible?.rut || '-'}</div>
 </div>
                   </div>
 
-                  {ultimaRecetaId ? (
-                    <div className="mt-8 text-xs text-slate-400">
-                      N° receta: {ultimaRecetaId}
-                    </div>
-                  ) : null}
+	                  {recetaIdVisible ? (
+	                    <div className="mt-8 text-xs text-slate-400">
+	                      N° receta: {recetaIdVisible}
+	                    </div>
+	                  ) : null}
                 </div>
               </div>
             )}

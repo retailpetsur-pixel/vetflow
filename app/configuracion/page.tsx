@@ -31,6 +31,7 @@ export default function ConfiguracionPage() {
   const [telefonoClinica, setTelefonoClinica] = useState('')
   const [emailClinica, setEmailClinica] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
+  const [archivoLogoNombre, setArchivoLogoNombre] = useState('')
 
   const [veterinarios, setVeterinarios] = useState<Veterinario[]>([])
   const [editandoVeterinarioId, setEditandoVeterinarioId] = useState<number | null>(null)
@@ -50,13 +51,13 @@ export default function ConfiguracionPage() {
   const [cargando, setCargando] = useState(true)
 
   const cardClass =
-    'rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900'
+    'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900'
   const inputClass =
-    'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800'
+    'w-full min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800'
   const buttonPrimary =
-    'rounded-xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200'
+    'inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-center font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 sm:w-auto dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200'
   const buttonSecondary =
-    'rounded-xl border border-slate-300 bg-white px-4 py-3 font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
+    'inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-center font-medium text-slate-700 transition hover:bg-slate-50 sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
 
   const cargarConfiguracion = async () => {
     const { data, error } = await supabase
@@ -271,8 +272,8 @@ export default function ConfiguracionPage() {
 
   if (cargando) {
     return (
-      <main className="min-h-screen bg-slate-100 p-6 dark:bg-slate-950">
-        <div className="mx-auto max-w-6xl pt-12 text-slate-600 dark:text-slate-300">
+      <main className="min-h-screen bg-slate-100 px-4 py-5 sm:p-6 dark:bg-slate-950">
+        <div className="mx-auto max-w-6xl pt-14 text-slate-600 sm:pt-12 dark:text-slate-300">
           Cargando configuración...
         </div>
       </main>
@@ -280,9 +281,9 @@ export default function ConfiguracionPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 dark:bg-slate-950">
+    <main className="min-h-screen bg-slate-100 px-4 py-5 sm:p-6 dark:bg-slate-950">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="pt-12">
+        <div className="pt-14 sm:pt-12">
           <Link
             href="/dashboard"
             className="text-blue-600 hover:underline dark:text-blue-400"
@@ -290,7 +291,7 @@ export default function ConfiguracionPage() {
             ← Volver al dashboard
           </Link>
 
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
             ⚙️ Configuración VetFlow
           </h1>
           <p className="mt-2 text-slate-600 dark:text-slate-400">
@@ -336,17 +337,20 @@ export default function ConfiguracionPage() {
             />
           </div>
 
-          <div className="mt-3">
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
 <input
+  id="logo-clinica"
   type="file"
   accept="image/*"
+  className="hidden"
   onChange={async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
+    setArchivoLogoNombre(file.name)
     const fileName = `logo-${Date.now()}`
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('logos')
       .upload(fileName, file)
 
@@ -363,6 +367,12 @@ if (error) {
     setLogoUrl(publicUrlData.publicUrl)
   }}
 />
+            <label htmlFor="logo-clinica" className={buttonSecondary}>
+              Seleccionar logo
+            </label>
+            <span className="min-w-0 break-all text-sm text-slate-600 dark:text-slate-300">
+              {archivoLogoNombre || 'Ningún archivo seleccionado'}
+            </span>
           </div>
 
           <div className="mt-4">
@@ -435,7 +445,7 @@ if (error) {
               value={firmaUrlVet}
               onChange={(e) => setFirmaUrlVet(e.target.value)}
             />
-         <div className="mt-3 flex flex-wrap items-center gap-3">
+         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
   <input
     id="firma-veterinario"
     type="file"
@@ -454,7 +464,7 @@ if (error) {
     Seleccionar firma
   </label>
 
-  <span className="text-sm text-slate-600 dark:text-slate-300">
+  <span className="min-w-0 break-all text-sm text-slate-600 dark:text-slate-300">
     {archivoFirma ? archivoFirma.name : 'Ningún archivo seleccionado'}
   </span>
 
@@ -491,7 +501,8 @@ if (error) {
             )}
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="min-w-[760px]">
             <div className="grid grid-cols-6 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
               <div>Nombre</div>
               <div>Cargo</div>
@@ -533,6 +544,7 @@ if (error) {
                 No hay veterinarios cargados.
               </div>
             )}
+            </div>
           </div>
         </div>
       </div>
